@@ -1,0 +1,5 @@
+/* src/index.css */
+@import "tailwindcss";
+
+/* 你自己的全域樣式可以寫在這下面 */
+html, body, #root { height: 100%; }

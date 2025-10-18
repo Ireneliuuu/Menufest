@@ -1,0 +1,20 @@
+# === Frontend / Node ===
+node_modules/
+dist/
+.env
+npm-debug.log*
+
+# === OS / Editor ===
+.DS_Store
+.vscode/
+.idea/
+
+# === Docker ===
+dbdata/
+db/pgdata/
+*.log
+
+# === Python (if added later) ===
+__pycache__/
+*.pyc
+venv/
