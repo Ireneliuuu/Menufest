@@ -26,6 +26,8 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    command: ["node", "index.js"]
     depends_on:
       db:
         condition: service_healthy
