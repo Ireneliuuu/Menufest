@@ -1,17 +1,14 @@
--- Menufest minimal schema (PostgreSQL)
--- 建議：CREATE DATABASE menufest; 並在該 DB 內執行本檔
--- 需要 pgcrypto 以便使用 gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- 以便使用 gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS citext;    -- 不分大小寫的 email
 
 -- ========== 1) users ==========
 -- 關係：users 1–1 profiles、users 1–多 family_members、users 1–多 ingredients、users 1–多 feedback
 CREATE TABLE users (
   uid              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username         TEXT NOT NULL UNIQUE,
-  -- 你寫的是 age/bday：實務上建議存生日，年齡可用查詢動態計算
-  birthday         DATE,                          -- 可為 NULL（使用者未填）
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+  email            CITEXT NOT NULL UNIQUE,       -- email 登入用，唯一且大小寫不敏感
+  password_hash    TEXT NOT NULL,                -- 儲存加密後的密碼
+  birthday         DATE                         -- 可為 NULL（使用者未填）
 );
 
 -- ========== 2) profiles ==========
