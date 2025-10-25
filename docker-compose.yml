@@ -2,13 +2,13 @@
 services:
   db:
     image: postgres:15
-    env_file: .env
+    #env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
       - dbdata:/var/lib/postgresql/data
@@ -17,6 +17,15 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+  llm:
+    build: ./llm
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DATABASE_URL: ${DATABASE_URL}   # postgresql+psycopg://menufest:menufest@db:5432/menufest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8081:8080"]              # 對外 8081（方便你本機測），容器內 8080
 
   gateway:
     build: ./backend
