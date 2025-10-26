@@ -1,4 +1,4 @@
-// routes/auth.js
+// routes/auth.js (OK)
 import { Router } from "express";
 import { pool } from "../db.js";
 import bcrypt from "bcryptjs";            // hashing 演算法
