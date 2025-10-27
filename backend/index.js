@@ -3,6 +3,7 @@ import cors from "cors";
 import authRouter, { verifyToken } from "./routes/auth.js";
 import ingredientRouter from "./routes/ingredients.js";
 import familyRouter from "./routes/family.js";
+import feedbackRouter from "./routes/feedback.js";
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
 app.use("/auth", authRouter);
 app.use("/api/ingredients", ingredientRouter);
 app.use("/api/family", familyRouter);
+app.use("/api/feedback", feedbackRouter);
 
 // （保留位子）未來會在這裡掛上 /api/v1/ingredients 等路由
 
