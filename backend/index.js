@@ -4,6 +4,7 @@ import authRouter, { verifyToken } from "./routes/auth.js";
 import ingredientRouter from "./routes/ingredients.js";
 import familyRouter from "./routes/family.js";
 import feedbackRouter from "./routes/feedback.js";
+import profilesRouter from "./routes/profiles.js";
 
 const app = express();
 
@@ -14,9 +15,10 @@ app.use(express.json());
 // 健康檢查：給你/前端/Docker 判斷服務是否存活
 app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
 app.use("/auth", authRouter);
-app.use("/api/ingredients", ingredientRouter);
-app.use("/api/family", familyRouter);
-app.use("/api/feedback", feedbackRouter);
+app.use("/profiles", profilesRouter);
+app.use("/ingredients", ingredientRouter);
+app.use("/family", familyRouter);
+app.use("/feedback", feedbackRouter);
 
 // （保留位子）未來會在這裡掛上 /api/v1/ingredients 等路由
 

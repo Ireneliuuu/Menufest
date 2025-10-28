@@ -8,7 +8,9 @@ CREATE TABLE users (
   username         TEXT NOT NULL UNIQUE,
   email            CITEXT NOT NULL UNIQUE,       -- email 登入用，唯一且大小寫不敏感
   password_hash    TEXT NOT NULL,                -- 儲存加密後的密碼
-  birthday         DATE                         -- 可為 NULL（使用者未填）
+  birthday         DATE,                         -- 可為 NULL（使用者未填）
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ========== 2) profiles ==========

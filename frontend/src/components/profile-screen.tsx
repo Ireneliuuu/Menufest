@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -13,6 +13,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Toaster } from './ui/sonner';
+import { getMe, updateMyProfile, MeResponse } from '@/api/profiles';
+
+// helper: safely convert ISO string -> "YYYY-MM-DD" for <input type="date">
+const toDateInput = (v: string | null | undefined) =>
+  v ? String(v).slice(0, 10) : "";
 
 interface ProfileScreenProps {
   user: UserProfile | null;
@@ -21,6 +26,11 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenProps) {
+  // ---- NEW: backend data + loading states ----
+  const [backend, setBackend] = useState<MeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
   // State for editing
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
   const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
@@ -54,28 +64,50 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
   const [familyAllergyInput, setFamilyAllergyInput] = useState('');
   const [familyPrefInput, setFamilyPrefInput] = useState('');
 
+  // ===== NEW: fetch profile from backend on mount =====
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const me = await getMe(); // GET /profiles/me
+        setBackend(me);
+
+        // hydrate UI state with backend values
+        setPersonalInfo({
+          fullName: me.username || '',
+          email: me.email || '',
+          birthday: toDateInput(me.birthday) // backend already returns YYYY-MM-DD
+        });
+        setAllergies(me.profile.allergies || []);
+        setPreferences(me.profile.preferences || []);
+      } catch (e: any) {
+        toast.error(e?.response?.data?.error || '載入個人資料失敗');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   // Handle personal info save
   const handleSavePersonal = () => {
     setIsEditingPersonal(false);
-    toast.success('個人資料已更新 ✅');
+    toast.success('個人資料已更新 ✅（尚未送出）');
   };
 
-  // Handle allergy add
+  // Add tag helpers(過敏與偏好)
   const handleAddAllergy = () => {
-    if (allergyInput.trim() && !allergies.includes(allergyInput.trim())) {
-      setAllergies([...allergies, allergyInput.trim()]);
-      setAllergyInput('');
-    }
+    const v = allergyInput.trim();
+    if (v && !allergies.includes(v)) setAllergies([...allergies, v]);
+    setAllergyInput('');
   };
 
-  // Handle preference add
   const handleAddPreference = () => {
-    if (preferenceInput.trim() && !preferences.includes(preferenceInput.trim())) {
-      setPreferences([...preferences, preferenceInput.trim()]);
-      setPreferenceInput('');
-    }
+    const v = preferenceInput.trim();
+    if (v && !preferences.includes(v)) setPreferences([...preferences, v]);
+    setPreferenceInput('');
   };
 
+  // family ---------------------------------------------
   // Handle family member add
   const handleAddFamilyMember = () => {
     if (!familyForm.name || !familyForm.relation) return;
@@ -149,31 +181,58 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
       toast.success('家庭成員已刪除');
     }
   };
+  // family ---------------------------------------------
 
-  // Save all changes
-  const handleSaveAll = () => {
-    if (user) {
-      onUpdateUser({
-        ...user,
-        fullName: personalInfo.fullName,
-        email: personalInfo.email,
-        birthday: personalInfo.birthday,
-        allergies,
-        dietPreferences: preferences,
-        familyMembers
+  // ===== NEW: persist to backend (PUT /profiles/me) =====
+  const handleSaveAll = async () => {
+    try {
+      setSaving(true);
+      const payload = {
+        birthday: personalInfo.birthday || null,      // '' → null
+        allergies,                                     // string[]
+        preferences                                    // string[]
+      };
+      const updated = await updateMyProfile(payload);  // PUT /profiles/me
+      setBackend(updated);
+
+      // reflect backend response to UI
+      setPersonalInfo({
+        fullName: updated.username || '',
+        email: updated.email || '',
+        birthday: toDateInput(updated.birthday)
       });
-      toast.success('所有變更已儲存成功 ✅');
+      setAllergies(updated.profile.allergies || []);
+      setPreferences(updated.profile.preferences || []);
+
+      // (optional) also update parent app state if you want
+      if (user) {
+        onUpdateUser({
+          ...user,
+          fullName: updated.username || user.fullName,
+          email: updated.email,
+          birthday: updated.birthday ?? '',
+          allergies: updated.profile.allergies || [],
+          dietPreferences: updated.profile.preferences || [],
+          familyMembers // still local only
+        });
+      }
+      toast.success('所有變更已儲存 ✅');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || '儲存失敗');
+    } finally {
+      setSaving(false);
+      setIsEditingPersonal(false);
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  if (loading) {
+    return (
+      <div className="p-6 text-gray-500">載入中…</div>
+    );
+  }
 
   return (
     <>
