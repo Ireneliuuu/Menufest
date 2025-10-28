@@ -11,13 +11,23 @@ import {
   Home, ChefHat, User, Edit, Save, X, Plus, Trash2, 
   Heart, ShieldAlert, Users, Check 
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Toaster } from './ui/sonner';
+
 import { getMe, updateMyProfile, MeResponse } from '@/api/profiles';
+import { listFamily, createFamily, updateFamily, deleteFamily } from "@/api/family";
 
 // helper: safely convert ISO string -> "YYYY-MM-DD" for <input type="date">
-const toDateInput = (v: string | null | undefined) =>
-  v ? String(v).slice(0, 10) : "";
+const toDateInput = (v: string | null | undefined) => v ? String(v).slice(0, 10) : "";
+
+// Helper: API -> UI mapping (accepts either {member:...} or raw object)
+const toUiMember = (m: any): FamilyMember => ({
+  id: m.id ?? m.family_member_id,
+  name: m.name ?? '',
+  relation: m.relation ?? '',
+  allergies: Array.isArray(m.allergies) ? m.allergies : [],
+  preferences: Array.isArray(m.preferences) ? m.preferences : [],
+});
 
 interface ProfileScreenProps {
   user: UserProfile | null;
@@ -30,6 +40,8 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
   const [backend, setBackend] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [familySaving, setFamilySaving] = useState(false);
   
   // State for editing
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
@@ -88,6 +100,40 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
     })();
   }, []);
 
+  // // Fetch family members after profile loads
+  // useEffect(() => {
+  //   if (!user) return;
+  //   (async () => {
+  //     try {
+  //       const members = await listFamily(); // returns {members:[{id,name,...}]}
+  //       setFamilyMembers(
+  //         members.map(m => ({
+  //           id: m.family_member_id,                       // API already returns "id"
+  //           name: m.name,
+  //           relation: m.relation ?? "",
+  //           allergies: Array.isArray(m.allergies) ? m.allergies : [],
+  //           preferences: Array.isArray(m.preferences) ? m.preferences : [],
+  //         }))
+  //       );
+  //     } catch (e: any) {
+  //       // optional toast
+  //       // toast.error(e?.response?.data?.error || "載入家庭成員失敗");
+  //       console.error("listFamily error:", e);
+  //     }
+  //   })();
+  // }, [user]);
+    useEffect(() => {
+    (async () => {
+      try {
+        const members = await listFamily();      // <-- now always an array
+        setFamilyMembers(members.map(toUiMember));
+      } catch (e) {
+        toast.error('載入家庭成員失敗');
+        console.error(e);
+      }
+    })();
+  }, []);
+
   // Handle personal info save
   const handleSavePersonal = () => {
     setIsEditingPersonal(false);
@@ -109,55 +155,60 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
 
   // family ---------------------------------------------
   // Handle family member add
-  const handleAddFamilyMember = () => {
-    if (!familyForm.name || !familyForm.relation) return;
-    
-    const newMember: FamilyMember = {
-      id: Date.now().toString(),
+  const handleAddFamilyMember = async () => {
+  if (!familyForm.name || !familyForm.relation) return;
+  try {
+    setFamilySaving(true);
+    const resp = await createFamily({
       name: familyForm.name,
       relation: familyForm.relation,
       allergies: familyForm.allergies,
-      preferences: familyForm.preferences
-    };
-    
-    setFamilyMembers([...familyMembers, newMember]);
-    setShowAddFamilyModal(false);
-    setFamilyForm({
-      name: '',
-      relation: '',
-      allergies: [],
-      preferences: []
+      preferences: familyForm.preferences,
     });
-    toast.success('家庭成員已添加 ✅');
+
+    // API may return { member: ... } or raw member
+    const m = (resp as any).member ?? resp;
+    const ui = toUiMember(m);
+
+    setFamilyMembers(prev => [...prev, ui]);
+    setShowAddFamilyModal(false);
+    setFamilyForm({ name: "", relation: "", allergies: [], preferences: [] });
+    toast.success("家庭成員已添加 ✅");
+  } catch (e: any) {
+    console.error("createFamily error:", e);
+    toast.error(e?.response?.data?.error || "新增失敗");
+  } finally {
+    setFamilySaving(false);
+  }
   };
 
+
   // Handle family member edit
-  const handleEditFamilyMember = () => {
-    if (!editingMember || !familyForm.name || !familyForm.relation) return;
-    
-    setFamilyMembers(prev =>
-      prev.map(member =>
-        member.id === editingMember.id
-          ? {
-              ...member,
-              name: familyForm.name,
-              relation: familyForm.relation,
-              allergies: familyForm.allergies,
-              preferences: familyForm.preferences
-            }
-          : member
-      )
-    );
-    
+  const handleEditFamilyMember = async () => {
+  if (!editingMember || !familyForm.name || !familyForm.relation) return;
+  try {
+    setFamilySaving(true);
+    const resp = await updateFamily(editingMember.id, {
+      name: familyForm.name,
+      relation: familyForm.relation,
+      allergies: familyForm.allergies,
+      preferences: familyForm.preferences,
+    });
+
+    const m = (resp as any).member ?? resp;
+    const ui = toUiMember(m);
+
+    setFamilyMembers(prev => prev.map(mem => (mem.id === editingMember.id ? ui : mem)));
     setShowEditFamilyModal(false);
     setEditingMember(null);
-    setFamilyForm({
-      name: '',
-      relation: '',
-      allergies: [],
-      preferences: []
-    });
-    toast.success('家庭成員已更新 ✅');
+    setFamilyForm({ name: "", relation: "", allergies: [], preferences: [] });
+    toast.success("家庭成員已更新 ✅");
+  } catch (e: any) {
+    console.error("updateFamily error:", e);
+    toast.error(e?.response?.data?.error || "更新失敗");
+  } finally {
+    setFamilySaving(false);
+  }
   };
 
   // Open edit family modal
@@ -173,14 +224,23 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
   };
 
   // Handle delete family member
-  const handleDeleteFamilyMember = () => {
-    if (memberToDelete) {
-      setFamilyMembers(prev => prev.filter(m => m.id !== memberToDelete));
-      setMemberToDelete(null);
-      setShowDeleteDialog(false);
-      toast.success('家庭成員已刪除');
-    }
+  const handleDeleteFamilyMember = async () => {
+  if (!memberToDelete) return;
+  try {
+    setFamilySaving(true);
+    await deleteFamily(memberToDelete);
+    setFamilyMembers(prev => prev.filter(m => m.id !== memberToDelete));
+    setMemberToDelete(null);
+    setShowDeleteDialog(false);
+    toast.success("家庭成員已刪除");
+  } catch (e: any) {
+    console.error("deleteFamily error:", e);
+    toast.error(e?.response?.data?.error || "刪除失敗");
+  } finally {
+    setFamilySaving(false);
+  }
   };
+
   // family ---------------------------------------------
 
   // ===== NEW: persist to backend (PUT /profiles/me) =====
