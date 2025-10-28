@@ -3,6 +3,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { UserProfile } from '../App';
+import { signup } from '@/api/auth'; // 接後端
+//import { useNavigate } from 'react-router-dom';
 
 interface RegisterScreenProps {
   onRegister: (user: UserProfile) => void;
@@ -10,6 +12,7 @@ interface RegisterScreenProps {
 }
 
 export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreenProps) {
+  //const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -17,34 +20,75 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
     confirmPassword: ''
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false); // loading
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    // Validate passwords match
+    // Validate passwords match (frontend)
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
     
     // Validate password length
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
     
     // Handle registration
-    onRegister({
-      fullName: formData.username,
-      email: formData.email,
-      birthday: '',
-      dietPreferences: [],
-      allergies: [],
-      healthRestrictions: [],
-      otherPreferences: '',
-      familyMembers: []
-    });
+    //onRegister({
+      //fullName: formData.username,
+      //email: formData.email,
+      //birthday: '',
+      //dietPreferences: [],
+      //allergies: [],
+      //healthRestrictions: [],
+      //otherPreferences: '',
+      //familyMembers: []
+    //});
+
+    setLoading(true);
+    try {
+      // API call
+      const data = await signup({
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+        // birthday 可選：如要收就加一個欄位；後端接受 undefined
+      });
+
+      // backend returns { token, user } on 201 → already logged in
+      //Tell App we’re logged in; App will set screen to 'home'
+      if (data?.user) {
+        onRegister({
+          fullName: data.user.username,
+          email: data.user.email,
+          birthday: data.user.birthday || '',
+          dietPreferences: [],
+          allergies: [],
+          healthRestrictions: [],
+          otherPreferences: '',
+          familyMembers: []
+        });
+      }
+
+      // navigate after success (already authed)
+      //navigate('/', { replace: true });
+    } catch (err: any) {
+      // backend can return { error: "..." } or field object
+      const msg =
+        err?.response?.data?.error
+          ? (typeof err.response.data.error === 'string'
+              ? err.response.data.error
+              : Object.values(err.response.data.error).join('; '))
+          : (err?.message || 'Signup failed');
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -225,6 +269,7 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
             
             <Button 
               type="submit" 
+              disabled={loading}
               className="register-button w-full rounded-lg mt-6"
               style={{ 
                 backgroundColor: 'var(--menufest-orange)',
@@ -234,7 +279,8 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
                 fontWeight: '600'
               }}
             >
-              Sign Up
+              {/*Sign Up*/}
+              {loading ? 'Creating…' : 'Sign Up'}
             </Button>
           </form>
           
