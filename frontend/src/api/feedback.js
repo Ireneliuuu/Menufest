@@ -11,7 +11,7 @@ import { api } from "./client";
  *  DELETE /api/feedback/:fid      → delete
  */
 
-// List feedback (optional filters)
+// List feedback (w/ optional filters)
 export async function listFeedback(query = {}) {
   const params = {};
   if (query.q) params.q = query.q;
