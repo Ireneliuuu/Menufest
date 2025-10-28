@@ -37,18 +37,6 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
       setError('Password must be at least 8 characters');
       return;
     }
-    
-    // Handle registration
-    //onRegister({
-      //fullName: formData.username,
-      //email: formData.email,
-      //birthday: '',
-      //dietPreferences: [],
-      //allergies: [],
-      //healthRestrictions: [],
-      //otherPreferences: '',
-      //familyMembers: []
-    //});
 
     setLoading(true);
     try {
@@ -75,8 +63,6 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
         });
       }
 
-      // navigate after success (already authed)
-      //navigate('/', { replace: true });
     } catch (err: any) {
       // backend can return { error: "..." } or field object
       const msg =
@@ -145,16 +131,6 @@ export function RegisterScreen({ onRegister, onNavigateToLogin }: RegisterScreen
                 style={{ width: "50%", height: "50%", objectFit: "contain",  transform: "scale(1.1)" }}
               />
             </div>
-            {/*<h1 
-              className="mb-2"
-              style={{ 
-                color: 'var(--menufest-green)',
-                fontSize: '2rem',
-                fontWeight: '700'
-              }}
-            >
-              Menufest
-            </h1>*/}
             <p 
               className="text-gray-600"
               style={{ fontSize: '0.95rem' }}

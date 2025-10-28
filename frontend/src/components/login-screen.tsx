@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { UserProfile } from '../App';
+import { login } from '@/api/auth'; // 接後端
 
 interface LoginScreenProps {
   onLogin: (user: UserProfile) => void;
@@ -14,21 +15,67 @@ export function LoginScreen({ onLogin, onNavigateToRegister }: LoginScreenProps)
     email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // simple client validation
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setError('Please enter a valid email');
+      return;
+    }
+    if (!formData.password) {
+      setError('Password is required');
+      return;
+    }
     
+    setLoading(true);
+    try {
+      // ★ real API call: sets token via tokenStore in auth.ts
+      const data = await login({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
+      // map backend user → your app's UserProfile
+      if (data?.user) {
+        onLogin({
+          fullName: data.user.username,
+          email: data.user.email,
+          birthday: data.user.birthday || '',
+          dietPreferences: [],
+          allergies: [],
+          healthRestrictions: [],
+          otherPreferences: '',
+          familyMembers: [],
+        });
+      }
+      // App will switch screen to 'home' (see your App.tsx onLogin handler)
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error
+          ? (typeof err.response.data.error === 'string'
+              ? err.response.data.error
+              : Object.values(err.response.data.error).join('; '))
+          : (err?.message || 'Login failed');
+      setError(String(msg));
+    } finally {
+      setLoading(false);
+    }
     // Simulate login - in real app would validate credentials
-    onLogin({
-      fullName: 'John Doe', // Mock user data
-      email: formData.email,
-      birthday: '',
-      dietPreferences: [],
-      allergies: [],
-      healthRestrictions: [],
-      otherPreferences: '',
-      familyMembers: []
-    });
+    //onLogin({
+    //  fullName: 'John Doe', // Mock user data
+    //  email: formData.email,
+    //  birthday: '',
+    //  dietPreferences: [],
+    //  allergies: [],
+    //  healthRestrictions: [],
+    //  otherPreferences: '',
+    //  familyMembers: []
+    //});
   };
 
   return (
