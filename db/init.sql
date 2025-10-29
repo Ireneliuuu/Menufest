@@ -18,8 +18,8 @@ CREATE TABLE users (
 CREATE TABLE profiles (
   profile_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id          UUID NOT NULL UNIQUE REFERENCES users(uid) ON DELETE CASCADE,
-  allergies        JSONB NOT NULL DEFAULT '{}'::jsonb,   -- 使用者自身過敏
-  preferences      JSONB NOT NULL DEFAULT '{}'::jsonb,   -- 使用者口味/偏好（tags 也可放這）
+  allergies        JSONB NOT NULL DEFAULT '[]'::jsonb,   -- 使用者自身過敏
+  preferences      JSONB NOT NULL DEFAULT '[]'::jsonb,   -- 使用者口味/偏好（tags 也可放這）
   -- 之後可以加 likes/dislikes 分欄位，但現在先極簡
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()

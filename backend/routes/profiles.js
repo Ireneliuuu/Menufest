@@ -13,8 +13,8 @@ router.get("/me", verifyToken, async (req, res) => {
       `
       SELECT 
         u.uid, u.username, u.email, u.birthday::date AS birthday,
-        COALESCE(p.allergies, '{}'::jsonb)  AS allergies,
-        COALESCE(p.preferences, '{}'::jsonb) AS preferences
+        COALESCE(p.allergies, '[]'::jsonb)  AS allergies,
+        COALESCE(p.preferences, '[]'::jsonb) AS preferences
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.uid
       WHERE u.uid = $1
@@ -43,7 +43,7 @@ router.get("/me", verifyToken, async (req, res) => {
 /* UPDATE: PUT 目前登入者的 profile（含生日） */
 router.put("/me", verifyToken, async (req, res) => {
   const { uid } = req.user;
-  const { birthday = null, allergies = {}, preferences = {} } = req.body || {};
+  const { birthday = null, allergies = [], preferences = [] } = req.body || {};
 
   // 基礎驗證
   if (birthday !== null && typeof birthday !== "string") {
@@ -56,10 +56,11 @@ router.put("/me", verifyToken, async (req, res) => {
     await client.query("BEGIN");
 
     // 1) 更新 users.birthday（可為 null）
-    await client.query(
-      `UPDATE users SET birthday = $2 WHERE uid = $1`,
-      [uid, birthday]
-    );
+    await client.query( `UPDATE users SET birthday = $2 WHERE uid = $1`, [uid, birthday]);
+
+    // normalize to arrays no matter what came in
+    const allergiesArr   = Array.isArray(allergies)   ? allergies   : [];
+    const preferencesArr = Array.isArray(preferences) ? preferences : [];
 
     // 2) upsert profiles
     // 重要：把 JS 物件轉成 JSON 字串，並在 SQL 端用 ::jsonb
@@ -72,7 +73,7 @@ router.put("/me", verifyToken, async (req, res) => {
           preferences = EXCLUDED.preferences,
           updated_at  = now()
       `,
-      [uid, JSON.stringify(allergies), JSON.stringify(preferences)]
+      [uid, JSON.stringify(allergiesArr), JSON.stringify(preferencesArr)]
     );
 
     await client.query("COMMIT");
@@ -82,8 +83,8 @@ router.put("/me", verifyToken, async (req, res) => {
       `
       SELECT 
         u.uid, u.username, u.email, u.birthday::date AS birthday,
-        COALESCE(p.allergies, '{}'::jsonb)  AS allergies,
-        COALESCE(p.preferences, '{}'::jsonb) AS preferences,
+        COALESCE(p.allergies, '[]'::jsonb)  AS allergies,
+        COALESCE(p.preferences, '[]'::jsonb) AS preferences,
         p.updated_at
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.uid
