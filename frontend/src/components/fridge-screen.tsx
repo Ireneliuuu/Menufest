@@ -71,14 +71,6 @@ export function FridgeScreen({ onNavigate
     category: ''
   });
 
-  // // Show expiry reminder on mount
-  // useEffect(() => {
-  //   const expiringItems = getExpiringItems();
-  //   if (expiringItems.length > 0) {
-  //     setShowExpiryReminder(true);
-  //   }
-  // }, []);
-
   // Show expiry reminder whenever ingredients change
   useEffect(() => {
     const expiringItems = getExpiringItems();
@@ -185,32 +177,6 @@ export function FridgeScreen({ onNavigate
     );
   };
 
-  // Handle add ingredient
-  // const handleAddIngredient = () => {
-  //   if (!formData.name || !formData.quantity) return;
-    
-  //   const newIngredient: Omit<Ingredient, 'id'> = {
-  //     name: formData.name,
-  //     quantity: parseFloat(formData.quantity),
-  //     unit: formData.unit,
-  //     expiryDate: formData.expiryDate,
-  //     category: formData.category || '其他'
-  //   };
-    
-  //   const id = Date.now().toString();
-  //   onUpdateIngredient(id, newIngredient as any);
-    
-  //   // Reset form
-  //   setFormData({
-  //     name: '',
-  //     quantity: '',
-  //     unit: '個',
-  //     expiryDate: '',
-  //     category: ''
-  //   });
-  //   setShowAddModal(false);
-  // };
-
   const handleAddIngredient = async () => {
     if (!formData.name || !formData.quantity) return;
     try {
@@ -230,22 +196,6 @@ export function FridgeScreen({ onNavigate
       console.error("createIngredient failed:", e);
     }
   };
-
-  // Handle edit ingredient
-  // const handleEditIngredient = () => {
-  //   if (!editingItem || !formData.name || !formData.quantity) return;
-    
-  //   onUpdateIngredient(editingItem.id, {
-  //     name: formData.name,
-  //     quantity: parseFloat(formData.quantity),
-  //     unit: formData.unit,
-  //     expiryDate: formData.expiryDate,
-  //     category: formData.category
-  //   });
-    
-  //   setShowEditModal(false);
-  //   setEditingItem(null);
-  // };
 
   // Open edit modal
   const openEditModal = (ingredient: Ingredient) => {
@@ -322,18 +272,6 @@ export function FridgeScreen({ onNavigate
       return dateString;
     }
   };
-
-  // Get ingredient image
-  // const getIngredientImage = (name: string) => {
-  //   const imageMap: Record<string, string> = {
-  //     '番茄': 'https://images.unsplash.com/photo-1546470427-6c0000f0e4c9',
-  //     '雞胸肉': 'https://images.unsplash.com/photo-1604503468506-a8da13d82791',
-  //     '牛奶': 'https://images.unsplash.com/photo-1550583724-b2692b85b150',
-  //     '雞蛋': 'https://images.unsplash.com/photo-1582722872445-44dc1f3e0eaa',
-  //     '紅蘿蔔': 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37'
-  //   };
-  //   return imageMap[name] || 'https://images.unsplash.com/photo-1505576391880-b3f9d713dc4f';
-  // };
 
   return (
     <>

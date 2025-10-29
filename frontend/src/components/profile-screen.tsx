@@ -223,49 +223,6 @@ export function ProfileScreen({ user, onUpdateUser, onNavigate }: ProfileScreenP
   };
 
   // family ---------------------------------------------
-
-  // // ===== NEW: persist to backend (PUT /profiles/me) =====
-  // const handleSaveAll = async () => {
-  //   try {
-  //     setSaving(true);
-  //     const payload = {
-  //       birthday: personalInfo.birthday || null,      // '' → null
-  //       allergies,                                     // string[]
-  //       preferences                                    // string[]
-  //     };
-  //     const updated = await updateMyProfile(payload);  // PUT /profiles/me
-  //     setBackend(updated);
-
-  //     // reflect backend response to UI
-  //     setPersonalInfo({
-  //       fullName: updated.username || '',
-  //       email: updated.email || '',
-  //       birthday: toDateInput(updated.birthday)
-  //     });
-  //     setAllergies(updated.profile.allergies || []);
-  //     setPreferences(updated.profile.preferences || []);
-
-  //     // (optional) also update parent app state if you want
-  //     if (user) {
-  //       onUpdateUser({
-  //         ...user,
-  //         fullName: updated.username || user.fullName,
-  //         email: updated.email,
-  //         birthday: updated.birthday ?? '',
-  //         allergies: updated.profile.allergies || [],
-  //         dietPreferences: updated.profile.preferences || [],
-  //         familyMembers // still local only
-  //       });
-  //     }
-  //     toast.success('所有變更已儲存 ✅');
-  //   } catch (e: any) {
-  //     toast.error(e?.response?.data?.error || '儲存失敗');
-  //   } finally {
-  //     setSaving(false);
-  //     setIsEditingPersonal(false);
-  //   }
-  // };
-    
   // ===== NEW: persist to backend (PUT /profiles/me) =====
   const handleSaveAll = async () => {
     try {

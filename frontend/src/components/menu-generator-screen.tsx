@@ -9,8 +9,10 @@ import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
 import { Textarea } from './ui/textarea';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Toaster } from './ui/sonner';
+
+import { createFeedback } from "@/api/feedback";
 
 interface MenuGeneratorScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -59,7 +61,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
   const [selectedMealDetail, setSelectedMealDetail] = useState<GeneratedMeal | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // Feedback modal states
+  // Feedback modal states ---------------------------------------
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -237,28 +239,50 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
     setInputValue('');
   };
 
+  // FFEDBACK ------------------------------------------------------
   const handleEndChat = () => {
     setShowFeedbackModal(true);
   };
 
+  // const handleSubmitFeedback = async () => {
+  //   setIsSubmitting(true);
+    
+  //   // Simulate API call
+  //   await new Promise(resolve => setTimeout(resolve, 1500));
+    
+  //   // Mock API call to backend
+  //   const feedbackData = {
+  //     raw_text: feedbackText,
+  //     rating: rating,
+  //     chat_id: attachChat ? Date.now().toString() : null,
+  //     menu_id: attachChat ? `${selectedDays}-menu` : null
+  //   };
+    
+  //   console.log('Feedback submitted:', feedbackData);
+    
+  //   setIsSubmitting(false);
+  //   setFeedbackSubmitted(true);
+  // };
+
   const handleSubmitFeedback = async () => {
+    if (!feedbackText.trim()) {
+      toast.error("請先輸入回饋內容 🙏");
+      return;
+    }
+
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Mock API call to backend
-    const feedbackData = {
-      raw_text: feedbackText,
-      rating: rating,
-      chat_id: attachChat ? Date.now().toString() : null,
-      menu_id: attachChat ? `${selectedDays}-menu` : null
-    };
-    
-    console.log('Feedback submitted:', feedbackData);
-    
-    setIsSubmitting(false);
-    setFeedbackSubmitted(true);
+    try {
+      // send to backend
+      await createFeedback(feedbackText.trim());
+
+      setFeedbackSubmitted(true);
+      toast.success("回饋已送出，感謝你 ❤️");
+    } catch (err: any) {
+      console.error("Failed to submit feedback:", err);
+      toast.error(err?.response?.data?.error || "回饋送出失敗，請稍後再試");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSkipFeedback = () => {
