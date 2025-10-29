@@ -14,18 +14,39 @@ import {
   Filter, Search, X, AlertTriangle, CheckCircle, Home, ChefHat 
 } from 'lucide-react';
 
+// backend api
+import { listIngredients, createIngredient, updateIngredient as apiUpdateIngredient, deleteIngredient as apiDeleteIngredient, IngredientDTO } from "@/api/ingredients";
+import { getIngredientImage } from "@/utils/ingredientImages";
+
+// helpers to map api DTOs to UI models
+type UIIngredient = Ingredient;
+
+export const toUI = (d: IngredientDTO): UIIngredient => ({
+  id: d.id,
+  name: d.name,
+  quantity: d.quantity,
+  unit: d.unit,
+  expiryDate: d.expiry_date ?? "",
+  // category is client-only; DB 沒有這個欄位
+  category: '其他',
+});
+
+export const toWirePatch = (i: Partial<UIIngredient>) => ({
+  name: i.name,
+  quantity: i.quantity,
+  unit: i.unit,
+  expiry_date: i.expiryDate || null,
+});
+
+//-------------------interface-----------------------
 interface FridgeScreenProps {
   ingredients: Ingredient[];
-  onUpdateIngredient: (id: string, updates: Partial<Ingredient>) => void;
-  onRemoveIngredient: (id: string) => void;
+  //onUpdateIngredient: (id: string, updates: Partial<Ingredient>) => void;
+  //onRemoveIngredient: (id: string) => void;
   onNavigate: (screen: Screen) => void;
 }
 
-export function FridgeScreen({ 
-  ingredients, 
-  onUpdateIngredient, 
-  onRemoveIngredient, 
-  onNavigate 
+export function FridgeScreen({ onNavigate 
 }: FridgeScreenProps) {
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +60,8 @@ export function FridgeScreen({
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<Ingredient | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
-  
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+
   // Form state for add/edit
   const [formData, setFormData] = useState({
     name: '',
@@ -49,15 +71,35 @@ export function FridgeScreen({
     category: ''
   });
 
-  // Show expiry reminder on mount
+  // // Show expiry reminder on mount
+  // useEffect(() => {
+  //   const expiringItems = getExpiringItems();
+  //   if (expiringItems.length > 0) {
+  //     setShowExpiryReminder(true);
+  //   }
+  // }, []);
+
+  // Show expiry reminder whenever ingredients change
   useEffect(() => {
     const expiringItems = getExpiringItems();
-    if (expiringItems.length > 0) {
-      setShowExpiryReminder(true);
+    setShowExpiryReminder(expiringItems.length > 0);
+  }, [ingredients]);
+
+
+  // Load ingredients from backend on mount
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await listIngredients(); // GET /ingredients
+        setIngredients(data.map(toUI)); // store in local state
+      } catch (err) {
+        console.error("Failed to load ingredients:", err);
+      }
     }
+    load();
   }, []);
 
-  // Get unique categories
+  // Get unique categories, keep category purely UI-side
   const categories = useMemo(() => {
     if (!ingredients || ingredients.length === 0) return [];
     return [...new Set(ingredients.map(ing => ing.category))];
@@ -144,46 +186,66 @@ export function FridgeScreen({
   };
 
   // Handle add ingredient
-  const handleAddIngredient = () => {
+  // const handleAddIngredient = () => {
+  //   if (!formData.name || !formData.quantity) return;
+    
+  //   const newIngredient: Omit<Ingredient, 'id'> = {
+  //     name: formData.name,
+  //     quantity: parseFloat(formData.quantity),
+  //     unit: formData.unit,
+  //     expiryDate: formData.expiryDate,
+  //     category: formData.category || '其他'
+  //   };
+    
+  //   const id = Date.now().toString();
+  //   onUpdateIngredient(id, newIngredient as any);
+    
+  //   // Reset form
+  //   setFormData({
+  //     name: '',
+  //     quantity: '',
+  //     unit: '個',
+  //     expiryDate: '',
+  //     category: ''
+  //   });
+  //   setShowAddModal(false);
+  // };
+
+  const handleAddIngredient = async () => {
     if (!formData.name || !formData.quantity) return;
-    
-    const newIngredient: Omit<Ingredient, 'id'> = {
-      name: formData.name,
-      quantity: parseFloat(formData.quantity),
-      unit: formData.unit,
-      expiryDate: formData.expiryDate,
-      category: formData.category || '其他'
-    };
-    
-    const id = Date.now().toString();
-    onUpdateIngredient(id, newIngredient as any);
-    
-    // Reset form
-    setFormData({
-      name: '',
-      quantity: '',
-      unit: '個',
-      expiryDate: '',
-      category: ''
-    });
-    setShowAddModal(false);
+    try {
+      const created = await createIngredient({
+        name: formData.name,
+        quantity: parseFloat(formData.quantity),
+        unit: formData.unit,
+        expiry_date: formData.expiryDate || null,
+      });
+      // Merge UI-only category
+      setIngredients(prev => [{ ...toUI(created), category: formData.category || "其他" }, ...prev]);
+
+      // Reset form & close
+      setFormData({ name: "", quantity: "", unit: "個", expiryDate: "", category: "" });
+      setShowAddModal(false);
+    } catch (e) {
+      console.error("createIngredient failed:", e);
+    }
   };
 
   // Handle edit ingredient
-  const handleEditIngredient = () => {
-    if (!editingItem || !formData.name || !formData.quantity) return;
+  // const handleEditIngredient = () => {
+  //   if (!editingItem || !formData.name || !formData.quantity) return;
     
-    onUpdateIngredient(editingItem.id, {
-      name: formData.name,
-      quantity: parseFloat(formData.quantity),
-      unit: formData.unit,
-      expiryDate: formData.expiryDate,
-      category: formData.category
-    });
+  //   onUpdateIngredient(editingItem.id, {
+  //     name: formData.name,
+  //     quantity: parseFloat(formData.quantity),
+  //     unit: formData.unit,
+  //     expiryDate: formData.expiryDate,
+  //     category: formData.category
+  //   });
     
-    setShowEditModal(false);
-    setEditingItem(null);
-  };
+  //   setShowEditModal(false);
+  //   setEditingItem(null);
+  // };
 
   // Open edit modal
   const openEditModal = (ingredient: Ingredient) => {
@@ -198,21 +260,53 @@ export function FridgeScreen({
     setShowEditModal(true);
   };
 
-  // Handle delete
+  const handleEditIngredient = async () => {
+    if (!editingItem || !formData.name || !formData.quantity) return;
+    try {
+      const updated = await apiUpdateIngredient(
+        editingItem.id,
+        toWirePatch({
+          name: formData.name,
+          quantity: parseFloat(formData.quantity),
+          unit: formData.unit,
+          expiryDate: formData.expiryDate,
+        })
+      );
+
+      setIngredients(prev =>
+        prev.map(it =>
+          it.id === editingItem.id
+            ? { ...toUI(updated), category: formData.category || it.category || "其他" }
+            : it
+        )
+      );
+
+      setShowEditModal(false);
+      setEditingItem(null);
+    } catch (e) {
+      console.error("updateIngredient failed:", e);
+    }
+  };
+
+  // Open delete confirm dialog
   const handleDelete = (id: string) => {
     setItemToDelete(id);
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    if (itemToDelete) {
-      setDeletingItemId(itemToDelete);
-      setTimeout(() => {
-        onRemoveIngredient(itemToDelete);
-        setDeletingItemId(null);
-        setItemToDelete(null);
-        setShowDeleteDialog(false);
-      }, 300);
+  // Confirm delete (API call)
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeletingItemId(itemToDelete);
+    try {
+      await apiDeleteIngredient(itemToDelete);
+      setIngredients(prev => prev.filter(it => it.id !== itemToDelete));
+    } catch (e) {
+      console.error("deleteIngredient failed:", e);
+    } finally {
+      setDeletingItemId(null);
+      setItemToDelete(null);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -230,16 +324,16 @@ export function FridgeScreen({
   };
 
   // Get ingredient image
-  const getIngredientImage = (name: string) => {
-    const imageMap: Record<string, string> = {
-      '番茄': 'https://images.unsplash.com/photo-1546470427-6c0000f0e4c9',
-      '雞胸肉': 'https://images.unsplash.com/photo-1604503468506-a8da13d82791',
-      '牛奶': 'https://images.unsplash.com/photo-1550583724-b2692b85b150',
-      '雞蛋': 'https://images.unsplash.com/photo-1582722872445-44dc1f3e0eaa',
-      '紅蘿蔔': 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37'
-    };
-    return imageMap[name] || 'https://images.unsplash.com/photo-1505576391880-b3f9d713dc4f';
-  };
+  // const getIngredientImage = (name: string) => {
+  //   const imageMap: Record<string, string> = {
+  //     '番茄': 'https://images.unsplash.com/photo-1546470427-6c0000f0e4c9',
+  //     '雞胸肉': 'https://images.unsplash.com/photo-1604503468506-a8da13d82791',
+  //     '牛奶': 'https://images.unsplash.com/photo-1550583724-b2692b85b150',
+  //     '雞蛋': 'https://images.unsplash.com/photo-1582722872445-44dc1f3e0eaa',
+  //     '紅蘿蔔': 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37'
+  //   };
+  //   return imageMap[name] || 'https://images.unsplash.com/photo-1505576391880-b3f9d713dc4f';
+  // };
 
   return (
     <>
@@ -816,7 +910,7 @@ export function FridgeScreen({
         </Dialog>
 
         {/* Add/Edit Ingredient Modal */}
-        <Dialog open={showAddModal || showEditModal} onOpenChange={(open) => {
+        <Dialog open={showAddModal || showEditModal} onOpenChange={(open: boolean) => {
           if (!open) {
             setShowAddModal(false);
             setShowEditModal(false);
