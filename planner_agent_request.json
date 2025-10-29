@@ -1,0 +1,22 @@
+{
+  "user_id": "",
+  "ingredient_groups": [
+    {
+      "main_ingredient": "雞腿",
+      "supporting_ingredients": ["洋蔥", "蒜頭"],
+      "total_amount": "2人份"
+    },
+    {
+      "main_ingredient": "石斑魚",
+      "supporting_ingredients": ["薑絲", "蔥花"],
+      "total_amount": "2人份"
+    }
+  ],
+  "people": 2,
+  "days": 1,
+  "meals": ["早餐", "午餐", "晚餐"],
+  "max_cooking_time": 30,
+  "max_steps": 5,
+  "preferences": ["家常菜", "下飯菜"],
+  "start_date": "2025-10-30"
+}

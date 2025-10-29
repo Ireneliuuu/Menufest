@@ -1,0 +1,115 @@
+# 單個 curl 命令插入食材
+# 用戶 ID: f9d8631f-d491-4bf8-92c0-69e4bce5f730
+# 請先獲取 JWT token，然後替換 YOUR_JWT_TOKEN_HERE
+
+# 1. 石斑魚
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "石斑魚", "quantity": 500, "unit": "克", "expiry_date": "2024-12-31"}'
+
+# 2. 洋蔥
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "洋蔥", "quantity": 2, "unit": "個", "expiry_date": "2024-11-15"}'
+
+# 3. 香菇
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "香菇", "quantity": 200, "unit": "克", "expiry_date": "2024-11-20"}'
+
+# 4. 茼蒿
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "茼蒿", "quantity": 300, "unit": "克", "expiry_date": "2024-11-10"}'
+
+# 5. 高麗菜
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "高麗菜", "quantity": 1, "unit": "個", "expiry_date": "2024-11-25"}'
+
+# 6. 番茄
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "番茄", "quantity": 4, "unit": "個", "expiry_date": "2024-11-12"}'
+
+# 7. 雞蛋
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "雞蛋", "quantity": 12, "unit": "個", "expiry_date": "2024-11-18"}'
+
+# 8. 豆腐
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "豆腐", "quantity": 2, "unit": "個", "expiry_date": "2024-11-08"}'
+
+# 9. 橄欖
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "橄欖", "quantity": 150, "unit": "克", "expiry_date": "2024-12-15"}'
+
+# 10. 優格
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "優格", "quantity": 500, "unit": "毫升", "expiry_date": "2024-11-14"}'
+
+# 11. 味噌
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "味噌", "quantity": 200, "unit": "克", "expiry_date": "2025-01-31"}'
+
+# 12. 鮭魚
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "鮭魚", "quantity": 400, "unit": "克", "expiry_date": "2024-11-16"}'
+
+# 13. 九層塔
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "九層塔", "quantity": 50, "unit": "克", "expiry_date": "2024-11-09"}'
+
+# 14. 雞腿
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "雞腿", "quantity": 4, "unit": "個", "expiry_date": "2024-11-13"}'
+
+# 15. 泡菜
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "泡菜", "quantity": 300, "unit": "克", "expiry_date": "2024-12-20"}'
+
+# 16. 豬絞肉
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "豬絞肉", "quantity": 300, "unit": "克", "expiry_date": "2024-11-11"}'
+
+# 17. 檸檬
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "檸檬", "quantity": 3, "unit": "個", "expiry_date": "2024-11-17"}'
+
+# 18. 大腸
+curl -X POST http://localhost:8080/api/ingredients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE" \
+  -d '{"ingredient_name": "大腸", "quantity": 500, "unit": "克", "expiry_date": "2024-11-07"}'
+
+# 獲取所有食材（驗證插入結果）
+curl -X GET http://localhost:8080/api/ingredients \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"

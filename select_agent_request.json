@@ -1,0 +1,11 @@
+{
+  "user_id": "",
+  "people": 2,
+  "days": 2,
+  "meals": ["早餐", "午餐", "晚餐"],
+  "constraints": {
+    "allergies": [],
+    "exclude_ingredients": []
+  },
+  "start_date": "2025-10-30"
+}

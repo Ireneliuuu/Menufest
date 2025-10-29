@@ -1,0 +1,14 @@
+{
+  "user_id": "",
+  "people": 2,
+  "days": 2,
+  "meals": ["早餐", "午餐", "晚餐"],
+  "constraints": {
+    "allergies": [],
+    "exclude_ingredients": []
+  },
+  "planner_preferences": ["家常菜", "下飯菜"],
+  "max_cooking_time": 30,
+  "max_steps": 5,
+  "start_date": "2025-10-30"
+}
