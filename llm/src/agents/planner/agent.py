@@ -106,17 +106,17 @@ SYSTEM_ZH = """你是一個專業的菜單規劃助手。你的任務是根據�
 - search_recipes_by_tags(tags: str, max_results: int): 根據標籤搜尋食譜，tags 格式如 "家常菜,烤箱料理,石斑料理"
 - filter_recipes_by_constraints(recipes_json: str, constraints: str = ""): 根據限制條件過濾食譜，constraints 格式如 "max_time:30,max_steps:5" (可選，max_steps 會自動從 steps 陣列計算)
 
-## 工作流程 (Chain of Thought Reasoning):
+## 工作流程:
 1) 拿到食材分組，每個分組包含主食材、配料、總份量
 2) 思考此食材分組，可以規劃什麼菜色
 3) 根據主食材(通常是第一個食材)搜尋食譜，作為參考
 4) 根據偏好標籤，使用 search_recipes_by_tags 搜尋相關食譜，作為參考
 5) 根據限制條件，思考可以搭配什麼食材，可用filter_recipes_by_constraints尋找食譜，作為參考
-6) 按照指定格式輸出最終菜單
+6) 按照指定格式輸出最終菜單 
+7) 輸出json格式，請不要輸出url，steps 輸出請寫出食譜詳細步驟，約3-7步。
 
 ## 輸出格式 (One-shot Example):
-url輸出請確認菜明是否相同，不同，輸出null。
-steps 輸出請寫出食譜詳細步驟，約3-7步。
+
 ```json
 {{
   "menu_plan": {{
@@ -325,60 +325,71 @@ class PlannerAgent:
             }
     
     def _extract_json_from_response(self, response: str) -> Optional[Dict[str, Any]]:
-        """從回應中提取 JSON"""
+        """從回應中提取 JSON，附帶常見錯誤修復"""
         import re
+        
+        def attempt_repairs(text: str) -> str:
+            s = text.strip()
+            # 去除 markdown 圍欄
+            s = re.sub(r"^```json\s*|^```\s*|```\s*$", "", s, flags=re.IGNORECASE | re.MULTILINE)
+            # 移除 BOM 與不可見控制字元
+            s = s.replace("\ufeff", "")
+            s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", s)
+            # 移除物件與陣列中的尾逗號
+            s = re.sub(r",\s*([}\]])", r"\1", s)
+            # 轉換 NaN/Infinity 為 null
+            s = re.sub(r"\bNaN\b|\bInfinity\b|-Infinity", "null", s)
+            return s
         
         # 打印原始回應以便調試
         print(f"🔍 原始回應: {response[:500]}...")
         
-        patterns = [
-            r'```json\s*(\{.*?\})\s*```',  # 代碼塊中的 JSON
-            r'```\s*(\{.*?\})\s*```',     # 代碼塊中的 JSON (無 json 標記)
-            r'(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})',  # 嵌套 JSON 對象
-            r'(\{.*?\})',  # 任何大括號內容
-        ]
-
-        candidates: List[str] = []
-        for pattern in patterns:
-            matches = re.findall(pattern, response, re.DOTALL)
-            candidates.extend(matches)
-
-        # 嘗試較長的候選，避免只取得局部物件
-        candidates = sorted(set(candidates), key=len, reverse=True)
-
-        for match in candidates:
+        # 1) 代碼塊優先
+        m = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, flags=re.IGNORECASE)
+        if m:
+            candidate = attempt_repairs(m.group(1))
             try:
-                # 清理可能的控制字符
-                cleaned = match.replace('\n', '\n').replace('\r', '\r').replace('\t', '\t')
-                result = json.loads(cleaned)
-                print(f"✅ 成功解析 JSON: {type(result)}")
+                return json.loads(candidate)
+            except Exception as e:
+                print(f"❌ 代碼塊解析失敗: {e}")
+        
+        # 2) 搜集多種候選再由長到短嘗試
+        patterns = [
+            r"```\s*(\{[\s\S]*?\})\s*```",
+            r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})",
+            r"(\{[\s\S]*?\})",
+        ]
+        candidates: List[str] = []
+        for p in patterns:
+            candidates.extend(re.findall(p, response, re.DOTALL))
+        candidates = sorted(set(candidates), key=len, reverse=True)
+        for c in candidates:
+            try:
+                result = json.loads(attempt_repairs(c))
+                print("✅ 從候選解析成功")
                 return result
-            except json.JSONDecodeError as e:
-                print(f"❌ JSON 解析失敗: {e}")
+            except Exception as e:
+                print(f"❌ 候選解析失敗: {e}")
                 continue
         
-        # 如果所有模式都失敗，嘗試提取最後一個完整的 JSON 對象
+        # 3) 從最後一段完整大括號擷取
         try:
-            # 找到最後一個完整的 JSON 對象
             start_idx = response.rfind('{')
             if start_idx != -1:
-                # 找到匹配的結束括號
                 brace_count = 0
                 end_idx = start_idx
-                for i, char in enumerate(response[start_idx:], start_idx):
-                    if char == '{':
+                for i, ch in enumerate(response[start_idx:], start_idx):
+                    if ch == '{':
                         brace_count += 1
-                    elif char == '}':
+                    elif ch == '}':
                         brace_count -= 1
                         if brace_count == 0:
                             end_idx = i + 1
                             break
-                
-                if brace_count == 0:
-                    json_str = response[start_idx:end_idx]
-                    print(f"🔍 嘗試解析最後一個 JSON 對象: {json_str[:200]}...")
+                if brace_count == 0 and end_idx > start_idx:
+                    json_str = attempt_repairs(response[start_idx:end_idx])
                     result = json.loads(json_str)
-                    print(f"✅ 成功解析 JSON: {type(result)}")
+                    print("✅ 從最後括號段解析成功")
                     return result
         except Exception as e:
             print(f"❌ 最後嘗試失敗: {e}")

@@ -193,52 +193,69 @@ class IngredientSelectorReactAgent:
         self.user_prompt = ChatPromptTemplate.from_messages([("user", USER_ZH)])
 
     def _extract_json_from_response(self, response: str) -> Optional[Dict[str, Any]]:
-        """從回應中提取 JSON"""
+        """從回應中提取 JSON，包含常見錯誤的自動修復"""
         import json
         import re
+        
+        def attempt_repairs(text: str) -> str:
+            """嘗試修復常見的 JSON 格式問題，不改動語意內容。"""
+            s = text.strip()
+            # 去除 markdown 圍欄
+            s = re.sub(r"^```json\s*|^```\s*|```\s*$", "", s, flags=re.IGNORECASE | re.MULTILINE)
+            # 移除 BOM 與不可見控制字元
+            s = s.replace("\ufeff", "")
+            s = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", s)
+            # 移除物件與陣列中的尾逗號
+            s = re.sub(r",\s*([}\]])", r"\1", s)
+            # 轉換 NaN/Infinity 為 null
+            s = re.sub(r"\bNaN\b|\bInfinity\b|-Infinity", "null", s)
+            return s
         
         # 打印原始回應以便調試
         print(f"🔍 原始回應: {response[:500]}...")
         
-        # 清理回應，移除前後空白
-        cleaned_response = response.strip()
+        cleaned_response = attempt_repairs(response)
         
+        # 1) 直接解析
         try:
-            # 嘗試直接解析
             result = json.loads(cleaned_response)
             print(f"✅ 直接解析 JSON 成功: {type(result)}")
             return result
-        except json.JSONDecodeError:
+        except Exception:
             pass
         
-        # 如果直接解析失敗，嘗試找到 JSON 對象
-        print("🔍 嘗試從回應中提取 JSON 對象...")
+        # 2) 尋找代碼塊中的 JSON
+        code_block = re.search(r"```json\s*(\{[\s\S]*?\})\s*```", response, flags=re.IGNORECASE)
+        if code_block:
+            try:
+                result = json.loads(attempt_repairs(code_block.group(1)))
+                print("✅ 從代碼塊解析成功")
+                return result
+            except Exception as e:
+                print(f"❌ 代碼塊解析失敗: {e}")
         
-        # 找到所有的 { 位置
-        start_positions = [m.start() for m in re.finditer(r'\{', cleaned_response)]
-        
-        for start_pos in reversed(start_positions):  # 從最後一個開始
-            # 從這個位置開始，找到匹配的 }
+        # 3) 從最大的大括號範圍擷取
+        text = response
+        brace_positions = [m.start() for m in re.finditer(r"\{", text)]
+        for start_pos in reversed(brace_positions):
             brace_count = 0
             end_pos = start_pos
-            
-            for i, char in enumerate(cleaned_response[start_pos:], start_pos):
-                if char == '{':
+            for i, ch in enumerate(text[start_pos:], start_pos):
+                if ch == '{':
                     brace_count += 1
-                elif char == '}':
+                elif ch == '}':
                     brace_count -= 1
                     if brace_count == 0:
                         end_pos = i + 1
                         break
-            
-            if brace_count == 0:  # 找到了匹配的 }
-                json_str = cleaned_response[start_pos:end_pos]
+            if brace_count == 0 and end_pos > start_pos:
+                candidate = attempt_repairs(text[start_pos:end_pos])
                 try:
-                    result = json.loads(json_str)
-                    print(f"✅ 成功解析 JSON: {type(result)}")
+                    result = json.loads(candidate)
+                    print("✅ 從最大括號範圍解析成功")
                     return result
-                except json.JSONDecodeError as e:
-                    print(f"❌ JSON 解析失敗: {e}")
+                except Exception as e:
+                    print(f"❌ 括號範圍解析失敗: {e}")
                     continue
         
         print("❌ 無法從回應中提取有效的 JSON")
