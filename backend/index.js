@@ -1,10 +1,11 @@
 import express from "express";
 import cors from "cors";
-import authRouter, { verifyToken } from "./routes/auth.js";
+import authRouter from "./routes/auth.js";
 import ingredientRouter from "./routes/ingredients.js";
 import familyRouter from "./routes/family.js";
 import feedbackRouter from "./routes/feedback.js";
 import profilesRouter from "./routes/profiles.js";
+import chatRoutes from "./routes/chat.js";
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use("/profiles", profilesRouter);
 app.use("/ingredients", ingredientRouter);
 app.use("/family", familyRouter);
 app.use("/feedback", feedbackRouter);
+app.use("/chat", chatRoutes);
 
 // （保留位子）未來會在這裡掛上 /api/v1/ingredients 等路由
 

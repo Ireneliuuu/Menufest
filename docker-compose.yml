@@ -21,7 +21,7 @@ services:
     build: ./llm
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DATABASE_URL: ${DATABASE_URL}   # postgresql+psycopg://menufest:menufest@db:5432/menufest
+      LLM_DATABASE_URL: postgresql+psycopg://menufest:menufest@db:5432/menufest
     depends_on:
       db:
         condition: service_healthy
@@ -36,10 +36,13 @@ services:
       NODE_ENV: ${NODE_ENV}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
+      LLM_BASE_URL: http://llm:8080
     command: ["node", "index.js"]
     depends_on:
       db:
         condition: service_healthy
+      llm:                              
+        condition: service_started
 
   frontend:
     build: ./frontend

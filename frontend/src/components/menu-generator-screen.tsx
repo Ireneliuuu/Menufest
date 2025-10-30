@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { Toaster } from './ui/sonner';
 
 import { createFeedback } from "@/api/feedback";
+import { generateMenu as apiGenerateMenu } from "@/api/chat";
+import { listFamily } from "@/api/family";
 
 interface MenuGeneratorScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -41,15 +43,12 @@ interface GeneratedMeal {
 }
 
 export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGeneratorScreenProps) {
+  console.log("✅ API base:", import.meta.env.VITE_API_BASE);
   const [step, setStep] = useState<QuestionStep>('days');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
       content: '你好！我是 Menufest 智能助手 🍽️\n\n讓我幫你規劃專屬的餐點菜單！首先，請問你想規劃幾天的菜單呢？',
-      options: {
-        type: 'radio',
-        choices: ['1 天', '3 天', '5 天', '7 天']
-      }
     }
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -70,7 +69,13 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const familyMembers = ['爸爸', '媽媽', '哥哥', '姐姐', '弟弟', '妹妹', '爺爺', '奶奶'];
+  type UIMember = { family_member_id: string; name: string; relation?: string };
+  const [familyMembers, setFamilyMembers] = useState<UIMember[]>([]);
+  // add next to other state:
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [llmResult, setLlmResult] = useState<any>(null); // raw LLM json (groups/reasoning)
+
   const appliances = ['瓦斯爐', '氣炸鍋', '烤箱', '微波爐', '電鍋', '壓力鍋', '慢煮鍋'];
 
   useEffect(() => {
@@ -79,39 +84,62 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
     }
   }, [messages]);
 
-  const getProgressText = () => {
-    const steps: Record<QuestionStep, string> = {
-      'days': '1/4',
-      'meals': '2/4',
-      'family': '3/4',
-      'appliances': '4/4',
-      'generating': '完成',
-      'complete': '完成'
-    };
-    return steps[step];
-  };
+  const handleDaysInput = () => {
+    const value = inputValue.trim();
+    const num = parseInt(value, 10);
 
-  const handleDaysSelection = (value: string) => {
+    if (!num || num <= 0) {
+      toast.error("請輸入有效的天數");
+      return;
+    }
+
     setSelectedDays(value);
-    
+
     setMessages(prev => [
       ...prev,
-      { role: 'user', content: value },
+      { role: 'user', content: `${value} 天` },
       {
         role: 'assistant',
         content: '太好了！接下來，請選擇你想規劃的餐次：',
         options: {
           type: 'checkbox',
-          choices: ['早餐', '午餐', '晚餐', '宵夜']
+          choices: ['早餐', '午餐', '晚餐']
         }
       }
     ]);
+
     setStep('meals');
+    setInputValue('');
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: unknown = await listFamily();
+
+        // tolerate both: array or { members: array }
+        const rows = Array.isArray(res) ? res : (res as any)?.members ?? [];
+
+        // tolerate both: id or family_member_id
+        const mapped: UIMember[] = (rows as any[]).map((m) => ({
+          family_member_id: m.family_member_id ?? m.id,  // 👈 key point
+          name: m.name,
+          relation: m.relation,
+        })).filter(m => !!m.family_member_id && !!m.name);
+
+        console.table(mapped);
+        setFamilyMembers(mapped);
+      } catch (e) {
+        console.error(e);
+        toast.error("無法載入家庭成員，請稍後再試");
+      }
+    })();
+  }, []);
+
 
   const handleMealsSelection = () => {
     if (selectedMeals.length === 0) return;
-    
+
     setMessages(prev => [
       ...prev,
       { role: 'user', content: selectedMeals.join('、') },
@@ -120,7 +148,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
         content: '了解！請選擇這份菜單要為哪些家庭成員準備：',
         options: {
           type: 'checkbox',
-          choices: familyMembers
+          choices: familyMembers.map(m => m.name) // <<< use fetched names
         }
       }
     ]);
@@ -128,8 +156,27 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
   };
 
   const handleFamilySelection = () => {
-    if (selectedFamily.length === 0) return;
-    
+    if (selectedFamily.length === 0) return; //gate on IDs  
+
+    // build a name→id map; trim to avoid whitespace mismatch
+  const nameToId = new Map(
+      familyMembers.map(m => [String(m.name).trim(), m.family_member_id])
+    );
+
+    const ids = selectedFamily
+      .map(n => nameToId.get(String(n).trim()))
+      .filter(Boolean) as string[];
+
+    console.log("👨‍👩‍👧‍👦 Selected family:", selectedFamily);
+    console.log("🧩 Mapped IDs:", ids);
+
+    if (ids.length === 0) {
+      toast.error("找不到對應的家庭成員 ID，請檢查資料或稍後再試");
+      return;
+    }
+
+    // Update the IDs state so payload is correct
+    setSelectedFamilyIds(ids);
     setMessages(prev => [
       ...prev,
       { role: 'user', content: selectedFamily.join('、') },
@@ -145,24 +192,94 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
     setStep('appliances');
   };
 
-  const handleAppliancesSelection = () => {
+  const handleAppliancesSelection = async () => {
     if (selectedAppliances.length === 0) return;
-    
+
     setMessages(prev => [
       ...prev,
       { role: 'user', content: selectedAppliances.join('、') },
-      {
-        role: 'assistant',
-        content: '太棒了！正在為你生成專屬菜單... 🍳'
-      }
+      { role: 'assistant', content: '太棒了！正在為你生成專屬菜單... 🍳' }
     ]);
     setStep('generating');
-    
-    // Simulate menu generation
-    setTimeout(() => {
-      generateMenu();
-    }, 2000);
-  };
+    setLoading(true);
+
+    try {
+      // days as number (supports "3 天" or just "3")
+      const days = /^\d+/.test(selectedDays) ? parseInt(selectedDays, 10)
+                  : parseInt(selectedDays.split(' ')[0], 10);
+
+      const payload = {
+        days,
+        meals: selectedMeals as Array<"早餐" | "午餐" | "晚餐" >,
+        family_member_ids: selectedFamilyIds.filter(Boolean),   // ← built once from names & stored members
+        appliances: selectedAppliances
+      }; 
+      //console.log("🔎 FE payload:", payload);
+
+      const res = await apiGenerateMenu(payload);
+      //console.log("🔁 full_pipeline result:", res);
+
+      type PlannerRecipe = {
+        recipe_name: string;
+        main_ingredient?: string;
+        ingredients: { name: string; amount: string }[];
+        steps: string[];
+      };
+
+      type PlannerDay = {
+        date: string;
+        breakfast?: PlannerRecipe[];
+        lunch?: PlannerRecipe[];
+        dinner?: PlannerRecipe[];
+      };
+      const schedule: PlannerDay[] | undefined = res?.planner_output?.menu_plan?.schedule;
+      
+      if (res?.status === "success" && Array.isArray(schedule) && schedule.length > 0) {
+        const generatedMeals: GeneratedMeal[] = schedule.flatMap((day: PlannerDay) => {
+          const mealsForDay: GeneratedMeal[] = [];
+
+          (["breakfast", "lunch", "dinner"] as const).forEach((mealType) => {
+            const recipes: PlannerRecipe[] = day[mealType] || [];
+            recipes.forEach((r: PlannerRecipe) => {
+              mealsForDay.push({
+                day: new Date(day.date).getDate(), // you can also store as string
+                meal: mealType,
+                name: r.recipe_name,
+                ingredients: r.ingredients.map(
+                  (i: { name: string; amount: string }) => `${i.name} ${i.amount}`
+                ),
+                steps: r.steps,
+                cookingTime: "N/A",
+              });
+            });
+          });
+
+          return mealsForDay;
+        });
+
+        setGeneratedMenu(generatedMeals);
+        setMessages(prev => [...prev, { role: 'assistant', content: `✨ 你的 ${days} 天專屬菜單已經準備好！` }]);
+        setStep('complete');
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: res?.message || '目前無法生成，請先新增冰箱食材。' }]);
+        setStep('complete');
+      }
+
+
+            setStep('complete');
+          } catch (e: any) {
+            console.error(e);
+            toast.error("生成菜單失敗");
+            setMessages(prev => [
+              ...prev,
+              { role: 'assistant', content: '生成失敗，請稍後再試。' }
+            ]);
+            setStep('complete');
+          } finally {
+            setLoading(false);
+          }
+        };
+
 
   const generateMenu = () => {
     const days = parseInt(selectedDays.split(' ')[0]);
@@ -226,6 +343,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
   };
 
   const handleSendMessage = () => {
+    if (step === 'days') { handleDaysInput(); return; }
     if (!inputValue.trim()) return;
     
     setMessages(prev => [
@@ -243,26 +361,6 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
   const handleEndChat = () => {
     setShowFeedbackModal(true);
   };
-
-  // const handleSubmitFeedback = async () => {
-  //   setIsSubmitting(true);
-    
-  //   // Simulate API call
-  //   await new Promise(resolve => setTimeout(resolve, 1500));
-    
-  //   // Mock API call to backend
-  //   const feedbackData = {
-  //     raw_text: feedbackText,
-  //     rating: rating,
-  //     chat_id: attachChat ? Date.now().toString() : null,
-  //     menu_id: attachChat ? `${selectedDays}-menu` : null
-  //   };
-    
-  //   console.log('Feedback submitted:', feedbackData);
-    
-  //   setIsSubmitting(false);
-  //   setFeedbackSubmitted(true);
-  // };
 
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim()) {
@@ -458,28 +556,6 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                 {/* Options */}
                 {msg.options && msg.role === 'assistant' && (
                   <div className="mt-3 ml-4">
-                    {msg.options.type === 'radio' && step === 'days' && (
-                      <RadioGroup value={selectedDays} onValueChange={handleDaysSelection}>
-                        <div className="grid grid-cols-2 gap-3">
-                          {msg.options.choices.map((choice) => (
-                            <div 
-                              key={choice}
-                              className="flex items-center space-x-2 p-3 rounded-lg cursor-pointer"
-                              style={{ 
-                                backgroundColor: selectedDays === choice ? 'var(--menufest-cream)' : 'white',
-                                border: selectedDays === choice ? '2px solid var(--menufest-orange)' : '2px solid #E0E0E0'
-                              }}
-                              onClick={() => handleDaysSelection(choice)}
-                            >
-                              <RadioGroupItem value={choice} id={choice} />
-                              <Label htmlFor={choice} className="cursor-pointer" style={{ fontSize: '0.95rem' }}>
-                                {choice}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      </RadioGroup>
-                    )}
 
                     {msg.options.type === 'checkbox' && step === 'meals' && (
                       <div className="space-y-2">
@@ -503,7 +579,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                               <Checkbox 
                                 id={choice}
                                 checked={selectedMeals.includes(choice)}
-                                onCheckedChange={(checked) => {
+                                onCheckedChange={(checked: boolean) => {
                                   if (checked) {
                                     setSelectedMeals(prev => [...prev, choice]);
                                   } else {
@@ -534,52 +610,51 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                     {msg.options.type === 'checkbox' && step === 'family' && (
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-3">
-                          {msg.options.choices.map((choice) => (
-                            <div 
-                              key={choice}
-                              className="flex items-center space-x-2 p-3 rounded-lg cursor-pointer"
-                              style={{ 
-                                backgroundColor: selectedFamily.includes(choice) ? 'var(--menufest-cream)' : 'white',
-                                border: selectedFamily.includes(choice) ? '2px solid var(--menufest-orange)' : '2px solid #E0E0E0'
-                              }}
-                              onClick={() => {
-                                setSelectedFamily(prev =>
-                                  prev.includes(choice)
-                                    ? prev.filter(m => m !== choice)
-                                    : [...prev, choice]
-                                );
-                              }}
-                            >
-                              <Checkbox 
-                                id={choice}
-                                checked={selectedFamily.includes(choice)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedFamily(prev => [...prev, choice]);
-                                  } else {
-                                    setSelectedFamily(prev => prev.filter(m => m !== choice));
-                                  }
+                          {msg.options.choices.map((choice, idx) => {
+                            const checked = selectedFamily.includes(choice);
+                            const checkboxId = `fam-${idx}`; // ensure unique id
+                            return (
+                              <div
+                                key={choice}
+                                className="flex items-center space-x-2 p-3 rounded-lg cursor-pointer"
+                                style={{
+                                  backgroundColor: checked ? 'var(--menufest-cream)' : 'white',
+                                  border: checked ? '2px solid var(--menufest-orange)' : '2px solid #E0E0E0'
                                 }}
-                              />
-                              <Label htmlFor={choice} className="cursor-pointer" style={{ fontSize: '0.95rem' }}>
-                                {choice}
-                              </Label>
-                            </div>
-                          ))}
+                                onClick={() => {
+                                  setSelectedFamily(prev =>
+                                    prev.includes(choice)
+                                      ? prev.filter(m => m !== choice)
+                                      : [...prev, choice]
+                                  );
+                                }}
+                              >
+                                {/* Make checkbox display-only so it doesn't toggle twice */}
+                                <Checkbox
+                                  id={checkboxId}
+                                  checked={checked}
+                                  onCheckedChange={() => { /* no-op to avoid double toggle */ }}
+                                  className="pointer-events-none"
+                                />
+                                <Label htmlFor={checkboxId} className="cursor-pointer" style={{ fontSize: '0.95rem' }}>
+                                  {choice}
+                                </Label>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <Button 
+
+                        <Button
                           onClick={handleFamilySelection}
                           disabled={selectedFamily.length === 0}
                           className="w-full mt-3 rounded-lg"
-                          style={{ 
-                            backgroundColor: 'var(--menufest-orange)',
-                            color: 'white'
-                          }}
+                          style={{ backgroundColor: 'var(--menufest-orange)', color: 'white' }}
                         >
                           確認選擇
                         </Button>
                       </div>
                     )}
+
 
                     {msg.options.type === 'checkbox' && step === 'appliances' && (
                       <div className="space-y-2">
@@ -603,7 +678,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                               <Checkbox 
                                 id={choice}
                                 checked={selectedAppliances.includes(choice)}
-                                onCheckedChange={(checked) => {
+                                onCheckedChange={(checked: boolean) => {
                                   if (checked) {
                                     setSelectedAppliances(prev => [...prev, choice]);
                                   } else {
@@ -764,8 +839,19 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="輸入訊息或補充需求..."
+                // onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (step === 'days') {
+                      handleDaysInput();
+                    } else {
+                      handleSendMessage();
+                    }
+                  }
+                }}
+                //placeholder="輸入訊息或補充需求..."
+                placeholder={step === 'days' ? '請輸入天數，例如 3' : '輸入訊息或補充需求...'}
                 className="flex-1 rounded-xl"
                 style={{ 
                   backgroundColor: '#F5F5F5',
@@ -774,7 +860,8 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                 }}
               />
               <Button
-                onClick={handleSendMessage}
+                //onClick={handleSendMessage}
+                onClick={() => (step === 'days' ? handleDaysInput() : handleSendMessage())}
                 disabled={!inputValue.trim()}
                 className="rounded-xl px-6"
                 style={{ 
@@ -975,7 +1062,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                       <Checkbox
                         id="attachChat"
                         checked={attachChat}
-                        onCheckedChange={(checked) => setAttachChat(checked as boolean)}
+                        onCheckedChange={(checked: boolean) => setAttachChat(checked as boolean)}
                       />
                       <Label 
                         htmlFor="attachChat" 
