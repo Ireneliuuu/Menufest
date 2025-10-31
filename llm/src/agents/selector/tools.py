@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, List, Dict
-from sqlalchemy import select, and_, func
+from datetime import date
+from sqlalchemy import select, and_, func, or_
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
@@ -23,12 +24,21 @@ def search_fridge(user_id: str,
                   limit: int = 25,
                   offset: int = 0) -> dict:
     """
-    ORM 查詢冰箱食材。名稱模糊、分頁。
+    ORM 查詢冰箱食材。自動排除今日之前的過期食材（expiry_date < 今天）。
+    名稱模糊、分頁。
     回傳：{items: [...], total, page, pages}
     """
     with SessionLocal() as s:
-        conds = [Ingredient.user_id == user_id,
-                 (Ingredient.quantity == None) | (Ingredient.quantity > 0)]
+        today = date.today()
+        conds = [
+            Ingredient.user_id == user_id,
+            (Ingredient.quantity == None) | (Ingredient.quantity > 0),
+            # 排除今日之前的過期食材：expiry_date 為 NULL 或 expiry_date >= 今天
+            or_(
+                Ingredient.expiry_date.is_(None),
+                Ingredient.expiry_date >= today
+            )
+        ]
         if name_contains:
             conds.append(Ingredient.ingredient_name.ilike(f"%{name_contains}%"))
 

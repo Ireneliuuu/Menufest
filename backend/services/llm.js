@@ -9,16 +9,34 @@ function joinUrl(base, path) {
 
 async function postJson(path, body) {
   const url = joinUrl(LLM_BASE_URL, path);         // ← safe join
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`LLM ${res.status}: ${text || res.statusText}`);
+  
+  // 設定較長的超時時間（LLM 處理需要時間）
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 分鐘超時
+  
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+      // Node.js 18+ fetch 沒有直接的 timeout，用 signal 控制
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`LLM ${res.status}: ${text || res.statusText}`);
+    }
+    return res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('LLM 請求超時（超過 5 分鐘）');
+    }
+    throw err;
   }
-  return res.json();
 }
 
 // Call the LLM “select” endpoint with the **array** of meals

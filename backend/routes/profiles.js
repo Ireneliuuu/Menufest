@@ -85,7 +85,7 @@ router.put("/me", verifyToken, async (req, res) => {
         u.uid, u.username, u.email, u.birthday::date AS birthday,
         COALESCE(p.allergies, '[]'::jsonb)  AS allergies,
         COALESCE(p.preferences, '[]'::jsonb) AS preferences,
-        p.updated_at
+        p.updated_at::timestamptz AS updated_at
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.uid
       WHERE u.uid = $1
@@ -101,7 +101,7 @@ router.put("/me", verifyToken, async (req, res) => {
       profile: {
         allergies: r.allergies,
         preferences: r.preferences,
-        updated_at: r.updated_at,
+        ...(r.updated_at && { updated_at: r.updated_at }),
       },
     });
   } catch (err) {
