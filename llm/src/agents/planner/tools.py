@@ -165,8 +165,45 @@ def filter_recipes_by_constraints(recipes_json: str, constraints: str = "") -> s
         JSON格式的過濾後食譜列表
     """
     try:
-        # 直接解析 JSON
-        recipes_data = json.loads(recipes_json)
+        # 清理 JSON 字符串：移除前後空白
+        cleaned_json = recipes_json.strip()
+        
+        # 如果被包在引號裡（可能是 LLM 傳入時被當成字符串），先移除
+        if (cleaned_json.startswith('"') and cleaned_json.endswith('"')) or \
+           (cleaned_json.startswith("'") and cleaned_json.endswith("'")):
+            cleaned_json = cleaned_json[1:-1]
+            # 處理轉義字符
+            cleaned_json = cleaned_json.replace('\\"', '"').replace("\\'", "'")
+        
+        # 處理 "Extra data" 錯誤：如果有多個 JSON 對象，只取第一個
+        # 找到第一個完整的 JSON 對象（從 { 開始到匹配的 } 結束）
+        if cleaned_json.startswith('{'):
+            brace_count = 0
+            end_pos = len(cleaned_json)
+            for i, char in enumerate(cleaned_json):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i + 1
+                        break
+            cleaned_json = cleaned_json[:end_pos]
+        elif cleaned_json.startswith('['):
+            bracket_count = 0
+            end_pos = len(cleaned_json)
+            for i, char in enumerate(cleaned_json):
+                if char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
+                    if bracket_count == 0:
+                        end_pos = i + 1
+                        break
+            cleaned_json = cleaned_json[:end_pos]
+        
+        # 嘗試解析 JSON
+        recipes_data = json.loads(cleaned_json)
         
         # 處理不同的 JSON 格式
         if isinstance(recipes_data, list):

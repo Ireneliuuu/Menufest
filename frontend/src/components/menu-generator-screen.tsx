@@ -735,7 +735,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                         fontWeight: '700'
                       }}
                     >
-                      第 {day} 天
+                      {day} 日
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {generatedMenu.filter(m => m.day === day).map((meal, idx) => (
@@ -776,7 +776,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                               {meal.name}
                             </h4>
                             <p className="text-gray-600 m-0" style={{ fontSize: '0.85rem' }}>
-                              烹飪時間：{meal.cookingTime}
+                              {/* 烹飪時間：{meal.cookingTime} */}
                             </p>
                           </CardContent>
                         </Card>
@@ -901,7 +901,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
                         fontWeight: '600'
                       }}
                     >
-                      第 {selectedMealDetail.day} 天 · {selectedMealDetail.meal}
+                      {selectedMealDetail.day} 日 · {selectedMealDetail.meal}
                     </span>
                     <h2 
                       className="m-0"
@@ -925,7 +925,7 @@ export function MenuGeneratorScreen({ onNavigate, onAddChatHistory }: MenuGenera
 
                 <div className="mb-4">
                   <p className="text-gray-600 m-0" style={{ fontSize: '0.95rem' }}>
-                    ⏱️ 烹飪時間：{selectedMealDetail.cookingTime}
+                    {/* ⏱️ 烹飪時間：{selectedMealDetail.cookingTime} */}
                   </p>
                 </div>
 

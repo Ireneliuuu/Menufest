@@ -58,25 +58,48 @@ echo "✅ 登入成功，Token: ${TOKEN:0:20}..."
 
 # 定義食材列表
 declare -a ingredients=(
-    "石斑魚:500:克:2025-10-31"
-    "洋蔥:2:個:2025-11-1"
-    "香菇:200:克:2025-11-20"
-    "茼蒿:300:克:2025-11-1"
-    "高麗菜:1:個:2025-10-28"
-    "番茄:4:個:2025-11-12"
-    "雞蛋:12:個:2025-11-18"
+    "石斑魚:500:克:2025-10-30"
+    "洋葱:2:個:2025-11-01"
+    "香菇:200:克:2025-11-01"
+    "茼蒿:300:克:2025-10-30"
+    "高麗菜:1:個:2025-10-30"
+    "番茄:4:個:2025-11-01"
+    "雞蛋:12:個:2025-11-01"
     "豆腐:2:個:2025-10-30"
-    "橄欖:150:克:2025-10-30"
-    "優格:500:毫升:2025-11-14"
-    "味噌:200:克:2025-11-05"
-    "鮭魚:400:克:2025-10-29"
-    "九層塔:50:克:2025-10-29"
-    "雞腿:4:個:2025-11-29"
-    "泡菜:300:克:2025-11-04"
-    "豬絞肉:300:克:2025-10-29"
-    "檸檬:3:個:2025-10-29"
-    "大腸:500:克:2025-10-29"
+    "橄欖:150:克:2025-11-01"
+    "優格:500:毫升:2025-10-30"
+    "味噌:200:克:2025-11-01"
+    "鮭魚:400:克:2025-10-30"
+    "九層塔:50:克:2025-10-30"
+    "雞腿:4:個:2025-11-01"
+    "泡菜:300:克:2025-11-01"
+    "豬絞肉:300:克:2025-11-01"
+    "檸檬:3:個:2025-11-01"
+    "大腸:500:克:2025-10-30"
+
+    # 新增20種，更新後
+    "牛番茄:3:個:2025-11-01"
+    "紅蘿蔔:2:根:2025-11-01"
+    "馬鈴薯:4:個:2025-11-01"
+    "青蔥:1:把:2025-10-30"
+    "蒜頭:8:瓣:2025-11-01"
+    "薑:50:克:2025-11-01"
+    "蛤蜊:400:克:2025-10-30"
+    "鮮奶:1:瓶:2025-11-01"
+    "奶油:100:克:2025-11-01"
+    "義大利麵:500:克:2026-03-01"
+    "米:1:公斤:2026-05-01"
+    "豆漿:900:毫升:2025-10-30"
+    "小黃瓜:3:條:2025-10-30"
+    "菠菜:200:克:2025-10-30"
+    "玉米:2:條:2025-11-01"
+    "紅椒:1:個:2025-11-01"
+    "可可粉:50:克:2026-01-05"
+    "麵粉:1:公斤:2026-04-15"
+    "燕麥片:600:克:2026-06-01"
+    "起司片:10:個:2025-11-01"
 )
+
 
 echo ""
 echo "開始插入 ${#ingredients[@]} 個食材..."
@@ -88,21 +111,42 @@ error_count=0
 for ingredient in "${ingredients[@]}"; do
     IFS=':' read -r name quantity unit expiry <<< "$ingredient"
     
-    echo -n "插入: $name ($quantity $unit, 過期: $expiry) ... "
+    # 單位轉換：後端只接受「個/克/毫升」
+    converted_unit="$unit"
+    converted_quantity="$quantity"
+    
+    case "$unit" in
+        "根"|"把"|"瓣"|"條"|"片")
+            converted_unit="個"
+            ;;
+        "瓶")
+            converted_unit="毫升"
+            ;;
+        "公斤")
+            converted_unit="克"
+            converted_quantity=$((quantity * 1000))
+            ;;
+    esac
+    
+    echo -n "插入: $name ($converted_quantity $converted_unit, 過期: $expiry) ... "
     
     # 發送插入請求
-    RESPONSE=$(curl -s -X POST http://localhost:8080/api/ingredients \
+    RESPONSE=$(curl -s -X POST http://localhost:8080/ingredients \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $TOKEN" \
         -d "{
             \"ingredient_name\": \"$name\",
-            \"quantity\": $quantity,
-            \"unit\": \"$unit\",
+            \"quantity\": $converted_quantity,
+            \"unit\": \"$converted_unit\",
             \"expiry_date\": \"$expiry\"
         }")
     
-    # 檢查回應
-    if echo "$RESPONSE" | jq -e '.ingredient_id' > /dev/null 2>&1; then
+    # 檢查回應：後端回傳的是 .id 不是 .ingredient_id，或檢查是否有 .error
+    if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ 失敗"
+        echo "   錯誤: $RESPONSE"
+        ((error_count++))
+    elif echo "$RESPONSE" | jq -e '.id' > /dev/null 2>&1 || echo "$RESPONSE" | jq -e '.name' > /dev/null 2>&1; then
         echo "✅ 成功"
         ((success_count++))
     else
@@ -124,7 +168,7 @@ echo "總計: ${#ingredients[@]} 個"
 if [ $success_count -gt 0 ]; then
     echo ""
     echo "顯示已插入的食材:"
-    curl -s -X GET http://localhost:8080/api/ingredients \
+    curl -s -X GET http://localhost:8080/ingredients \
         -H "Authorization: Bearer $TOKEN" | jq '.[] | {
             name: .ingredient_name, 
             quantity: .quantity, 

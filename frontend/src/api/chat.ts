@@ -8,7 +8,9 @@ export type GenerateMenuRequest = {
 
 export async function generateMenu(req: GenerateMenuRequest): Promise<any> {
   const token = localStorage.getItem("token");
-  const r = await fetch(`${import.meta.env.VITE_API_BASE || ""}/chat/generate-menu`, {
+  // 瀏覽器在本機，必須用 localhost:8080（不能用 gateway:8080）
+  const apiBase = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || "http://localhost:8080";
+  const r = await fetch(`${apiBase}/chat/generate-menu`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

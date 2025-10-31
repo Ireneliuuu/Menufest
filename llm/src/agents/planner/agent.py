@@ -45,7 +45,7 @@ class RecipeItem(BaseModel):
     recipe_name: str = Field(..., description="食譜名稱")
     main_ingredient: str = Field(..., description="主食材")
     ingredients: List[IngredientItem] = Field(..., description="食材列表")
-    url: str = Field(..., description="食譜網址")
+    url: Optional[str] = Field("", description="食譜網址（可選）")
     steps: Optional[List[str]] = Field(None, description="烹飪步驟")
 
 class MealPlan(BaseModel):
@@ -206,7 +206,7 @@ class PlannerAgent:
     """Planner Agent - 主 Agent"""
     
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4)
         self.tools = [
             search_recipe_by_ingredient,
             filter_recipes_by_constraints,
@@ -232,7 +232,7 @@ class PlannerAgent:
             agent=self.agent,
             tools=self.tools,
             verbose=True,
-            max_iterations=15
+            max_iterations=25
         )
     
     def plan_menu_with_params(self, request: PlannerRequest) -> PlannerResponse:

@@ -1,12 +1,30 @@
 // backend/utils/merge.js
 // combine user + selected family allergies/preferences into one clean set (for LLM)
-export function buildMergedConstraints(profile = {}, family = []) {
-  const aSet = new Set([...(profile.allergies || [])]);
-  const pSet = new Set([...(profile.preferences || [])]);
+function toArray(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (value == null) return [];
+  if (typeof value === "string") {
+    const s = value.trim();
+    // try JSON array first
+    if ((s.startsWith("[") && s.endsWith("]")) || (s.startsWith("\"") && s.endsWith("\""))) {
+      try {
+        const parsed = JSON.parse(s);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : (parsed ? [String(parsed)] : []);
+      } catch {}
+    }
+    // fallback comma-separated
+    return s ? s.split(/\s*,\s*/).filter(Boolean) : [];
+  }
+  return [];
+}
 
-  for (const m of family) {
-    (m.allergies || []).forEach(x => aSet.add(x));
-    (m.preferences || []).forEach(x => pSet.add(x));
+export function buildMergedConstraints(profile = {}, family = []) {
+  const aSet = new Set(toArray(profile.allergies));
+  const pSet = new Set(toArray(profile.preferences));
+
+  for (const m of family || []) {
+    for (const x of toArray(m.allergies)) aSet.add(x);
+    for (const x of toArray(m.preferences)) pSet.add(x);
   }
   return {
     allergies: Array.from(aSet),     // hard excludes
