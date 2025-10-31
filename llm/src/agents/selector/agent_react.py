@@ -36,9 +36,9 @@ class Dish(BaseModel):
 class DayMeal(BaseModel):
     """單日餐點"""
     date: str  # YYYY-MM-DD
-    breakfast: List[Dish]
-    lunch: List[Dish]
-    dinner: List[Dish]
+    breakfast: List[Dish] = Field(default_factory=list)
+    lunch: List[Dish] = Field(default_factory=list)
+    dinner: List[Dish] = Field(default_factory=list)
 
 class SelectorOutput(BaseModel):
     """多天菜單規劃結果"""
